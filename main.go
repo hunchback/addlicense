@@ -268,5 +268,6 @@ func hasLicense(b []byte) bool {
 		n = len(b)
 	}
 	return bytes.Contains(bytes.ToLower(b[:n]), []byte("copyright")) ||
-		bytes.Contains(bytes.ToLower(b[:n]), []byte("mozilla public"))
+		bytes.Contains(bytes.ToLower(b[:n]), []byte("mozilla public")) ||
+		bytes.Contains(bytes.ToLower(b[:n]), []byte("do not edit"))
 }
