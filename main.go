@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	gitignore "github.com/monochromegane/go-gitignore"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -47,12 +48,13 @@ Flags:
 `
 
 var (
-	holder    = flag.String("c", "Google LLC", "copyright holder")
-	license   = flag.String("l", "apache", "license type: apache, bsd, mit, mpl")
-	licensef  = flag.String("f", "", "license file")
-	year      = flag.String("y", fmt.Sprint(time.Now().Year()), "copyright year(s)")
-	verbose   = flag.Bool("v", false, "verbose mode: print the name of the files that are modified")
-	checkonly = flag.Bool("check", false, "check only mode: verify presence of license headers and exit with non-zero code if missing")
+	holder     = flag.String("c", "Google LLC", "copyright holder")
+	license    = flag.String("l", "apache", "license type: apache, bsd, mit, mpl")
+	licensef   = flag.String("f", "", "license file")
+	year       = flag.String("y", fmt.Sprint(time.Now().Year()), "copyright year(s)")
+	verbose    = flag.Bool("v", false, "verbose mode: print the name of the files that are modified")
+	checkonly  = flag.Bool("check", false, "check only mode: verify presence of license headers and exit with non-zero code if missing")
+	ignorefile = flag.String("ignorefile", "", "point to a .gitignore file")
 )
 
 func main() {
@@ -69,6 +71,12 @@ func main() {
 	data := &copyrightData{
 		Year:   *year,
 		Holder: *holder,
+	}
+
+	var ignore gitignore.IgnoreMatcher
+	ignore = gitignore.DummyIgnoreMatcher(false)
+	if *ignorefile != "" {
+		ignore, _ = gitignore.NewGitIgnore(*ignorefile)
 	}
 
 	var t *template.Template
@@ -140,7 +148,7 @@ func main() {
 	}()
 
 	for _, d := range flag.Args() {
-		walk(ch, d)
+		walk(ch, d, ignore)
 	}
 	close(ch)
 	<-done
@@ -151,7 +159,7 @@ type file struct {
 	mode os.FileMode
 }
 
-func walk(ch chan<- *file, start string) {
+func walk(ch chan<- *file, start string, ignore gitignore.IgnoreMatcher) {
 	filepath.Walk(start, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
 			log.Printf("%s error: %v", path, err)
@@ -160,6 +168,10 @@ func walk(ch chan<- *file, start string) {
 		if fi.IsDir() {
 			return nil
 		}
+		if ignore.Match(path, false) {
+			return nil
+		}
+
 		ch <- &file{path, fi.Mode()}
 		return nil
 	})
